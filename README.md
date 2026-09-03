@@ -1,105 +1,127 @@
-# ⚡ Passo 3: Auth & User Management Lambda (`15-soat-tech-challenge-lamda`)
+# ⚡ Auth & User Management Lambda Serverless (`15-soat-tech-challenge-lamda`)
 
-Este repositório é o **terceiro passo** da esteira de infraestrutura. Ele provisiona uma função **AWS Lambda Serverless** exposta via **Lambda Function URL pública**, responsável pelo cadastro de usuários com validação de documentos (**CPF e CNPJ**), consulta de status cadastral e autenticação via **Keycloak (no EKS)** com emissão de tokens **JWT**.
-
----
-
-## 📌 Pré-Requisitos Obrigatórios
-
-> [!IMPORTANT]
-> - O **Passo 1 (`iac-k8s`)** DEVE estar aplicado (para que a VPC, subnets privadas e o serviço do Keycloak existam).
-> - O **Passo 2 (`iac-db`)** DEVE estar aplicado (para que o Keycloak consiga persistir os dados no RDS PostgreSQL).
+Componente **Serverless na AWS** responsável pela autenticação, validação algorítmica de documentos brasileiros (**CPF e CNPJ**) e gestão de identidades integrado ao **Keycloak (no EKS)** com emissão de tokens **JWT**.
 
 ---
 
-## 🏛️ Fluxo Serverless e Segurança
+## 🎯 1. Descrição do Propósito
+
+A função AWS Lambda implementa um ponto de entrada serverless rápido, seguro e desacoplado para operações de identidade no ecossistema da oficina mecânica:
+* **Validação Algorítmica Rigorosa de Documentos**: Implementação pura em Node.js do algoritmo oficial **Módulo 11 da Receita Federal** para validação dos 2 dígitos verificadores de CPF (11 dígitos) e CNPJ (14 dígitos), rejeitando sequências repetidas (`111.111.111-11`, etc.) e entradas mal formatadas.
+* **Cadastro Automatizado de Usuários**: Integração com a API Admin do Keycloak para criação de usuários com perfis distintos (`CUSTOMER` para autoatendimento e `EMPLOYEE` para mecânicos/atendentes).
+* **Consulta de Status Cadastral**: Endpoint leve de verificação por CPF para verificar existência prévia e situação cadastral (`ACTIVE` ou `DISABLED`).
+* **Autenticação OIDC e Emissão de JWT**: Processamento de login com emissão de tokens criptografados (`access_token`, `refresh_token`) consumíveis no AWS API Gateway e nas APIs do backend.
+* **Acesso Público sem Gateway Dedicado**: Exposição direta via **AWS Lambda Function URL** com suporte total a CORS para aplicações web e mobile.
+
+---
+
+## 💻 2. Tecnologias Utilizadas
+
+* **Runtime & Linguagem**: Node.js 20.x (utilizando recursos nativos do Node 20 como `fetch` e `URLSearchParams`).
+* **Cloud Provider & Computação Serverless**: AWS Lambda vinculada às subnets privadas da VPC do EKS para comunicação com o Keycloak.
+* **Exposição de Rede**: AWS Lambda Function URL (HTTPS nativo com autorização pública e CORS).
+* **Gestão de Identidade & OIDC**: Keycloak Admin REST API e OpenID Connect Token Endpoint (`grant_type=password`).
+* **Infraestrutura como Código**: Terraform 1.6+ (com empacotamento automático `archive_file` e descoberta de VPC via tags).
+* **Testes Automatizados**: Node.js Test Runner nativo (`node:test` e `node:assert`).
+* **Integração Contínua (CI/CD)**: GitHub Actions (`.github/workflows/terraform.yml`).
+
+---
+
+## 🏛️ 3. Diagrama da Arquitetura do Repositório
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Cliente as Cliente / Frontend
-    participant Lambda as ⚡ AWS Lambda (Function URL)
-    participant Validator as 📐 DocumentValidator (Módulo 11)
-    participant Keycloak as 🔐 Keycloak (EKS Privado)
-    participant RDS as 🐘 PostgreSQL (RDS)
+graph TD
+    Client([Cliente / Web / Mobile / Postman]) -->|HTTPS :443| FuncUrl[AWS Lambda Function URL]
+    
+    subgraph LambdaCore [AWS Lambda Serverless Function - Node.js 20]
+        Router[Router HTTP: index.js]
+        Validator[documentValidator.js: Algoritmo Módulo 11]
+        KeycloakClient[keycloakService.js: Cliente HTTP]
+        
+        HandlerRegister[registerHandler.js]
+        HandlerSearch[searchHandler.js]
+        HandlerAuth[authHandler.js]
+        
+        FuncUrl --> Router
+        Router -->|POST /register| HandlerRegister
+        Router -->|GET /users/:cpf| HandlerSearch
+        Router -->|POST /auth/login| HandlerAuth
+        
+        HandlerRegister --> Validator
+        HandlerSearch --> Validator
+        
+        HandlerRegister --> KeycloakClient
+        HandlerSearch --> KeycloakClient
+        HandlerAuth --> KeycloakClient
+    end
 
-    Note over Cliente,Lambda: 1. Cadastro (/register)
-    Cliente->>Lambda: POST /register { name, email, document, password, role }
-    Lambda->>Validator: Valida dígitos verificadores do CPF/CNPJ
-    Validator-->>Lambda: Documento Válido
-    Lambda->>Keycloak: POST /admin/realms/garage/users
-    Keycloak->>RDS: Salva credenciais e atributos (cpf, role)
-    Keycloak-->>Lambda: 201 Created
-    Lambda-->>Cliente: Usuário criado com sucesso
+    subgraph AWS_EKS_VPC [VPC Privada do EKS]
+        KeycloakService[Service Keycloak :8080]
+        KeycloakPod[Keycloak OIDC & Admin API]
+        RDSPostgres[(AWS RDS PostgreSQL)]
+        
+        KeycloakClient -->|HTTP Privado| KeycloakService
+        KeycloakService --> KeycloakPod
+        KeycloakPod -->|JDBC| RDSPostgres
+    end
 
-    Note over Cliente,Lambda: 2. Consulta de CPF (/users/{cpf})
-    Cliente->>Lambda: GET /users/123.456.789-00
-    Lambda->>Keycloak: GET /admin/realms/garage/users?username=12345678900
-    Keycloak-->>Lambda: Dados do usuário e status
-    Lambda-->>Cliente: { exists: true, status: "ACTIVE", user: {...} }
-
-    Note over Cliente,Lambda: 3. Autenticação (/auth/login)
-    Cliente->>Lambda: POST /auth/login { username, password }
-    Lambda->>Keycloak: POST /realms/garage/protocol/openid-connect/token
-    Keycloak-->>Lambda: JWT Tokens (Access Token + Refresh Token)
-    Lambda-->>Cliente: { access_token: "eyJ...", token_type: "Bearer" }
+    HandlerAuth -.->|Retorna Access Token JWT| Client
 ```
 
 ---
 
-## 🧪 1. Execução dos Testes Unitários
+## ⚙️ 4. Passos para Execução e Deploy
 
-Antes de realizar o deploy na nuvem, você pode rodar os testes unitários automatizados (14 testes cobrindo algoritmos de validação do CPF, CNPJ, detecção de erros, tratamento de CORS e rotas HTTP):
+### 4.1. Execução dos Testes Unitários Locais
+A suíte inclui 14 testes automatizados cobrindo todas as regras de CPF, CNPJ, roteamento e CORS:
 
 ```bash
+# Executar todos os testes com Node nativo
 npm test
 ```
 
-Resultado esperado:
-```
-✔ DocumentValidator - isValidCPF with valid CPFs
-✔ DocumentValidator - isValidCPF with invalid CPFs
-✔ DocumentValidator - isValidCNPJ with valid CNPJs
-✔ Lambda Router - OPTIONS preflight
-✔ Lambda Router - Register validation failure for invalid CPF
-...
-ℹ tests 14 | pass 14 | fail 0
-```
-
----
-
-## ⚙️ 2. Execução do Terraform na AWS
-
-Certifique-se de estar com as credenciais da sessão do AWS Learner Lab ativas no seu terminal.
-
-Dentro da pasta `15-soat-tech-challenge-lamda`:
+### 4.2. Provisionamento do Terraform na AWS
+Certifique-se de que os Passos 1 (`iac-k8s`) e 2 (`iac-db`) já foram provisionados na AWS:
 
 ```bash
-# 1. Inicializar plugins
+# 1. Inicializar
 terraform init
 
-# 2. Validar sintaxe
+# 2. Validar
 terraform validate
 
-# 3. Aplicar o deploy da Lambda e Function URL
+# 3. Aplicar o deploy da Lambda
 terraform apply -auto-approve
 ```
 
-Ao término, o Terraform exibirá a **URL pública da Lambda**:
+O Terraform imprimirá a **Function URL pública**:
 ```
 Outputs:
 lambda_function_url = "https://xxxxxx.lambda-url.us-east-1.on.aws/"
 ```
 
+### 4.3. Automação via GitHub Actions
+A pipeline em `.github/workflows/terraform.yml` roda os testes unitários (`npm test`) e executa o `terraform apply` a cada push na branch principal.
+
 ---
 
-## 🌐 3. Como Testar os 3 Endpoints (Exemplos Práticos com cURL)
+## 📑 5. Link para o Swagger e Postman das APIs
 
-Substitua `https://<lambda-url>` pela URL gerada nos outputs do Terraform:
+### 🌐 Especificação das Rotas da Lambda (OpenAPI / Swagger):
+Você pode importar a especificação OpenAPI 3.0 das rotas da Lambda no Swagger Editor ou Postman:
 
-### Endpoint 1: 📝 Cadastro de Usuário (`POST /register`)
-Valida os dígitos verificadores (CPF ou CNPJ) e registra o cliente/funcionário no Keycloak:
+| Rota | Método | Descrição |
+| :--- | :---: | :--- |
+| **`/register`** | `POST` | Cadastra cliente/funcionário validando os dígitos verificadores de CPF/CNPJ |
+| **`/users/{cpf}`** | `GET` | Consulta a existência e a situação cadastral do usuário no Keycloak |
+| **`/auth/login`** | `POST` | Autentica usuário e senha gerando o token JWT (OpenID Connect) |
+| **`/health`** | `GET` | Health check da função Lambda |
 
+---
+
+### 📬 Exemplos Prontos para Postman e cURL:
+
+#### 1. 📝 Cadastro de Cliente com Validação de CPF (`POST /register`)
 ```bash
 curl --location 'https://<lambda-url>/register' \
 --header 'Content-Type: application/json' \
@@ -112,7 +134,7 @@ curl --location 'https://<lambda-url>/register' \
 }'
 ```
 
-**Resposta de Sucesso (201 Created)**:
+**Resposta (201 Created)**:
 ```json
 {
   "success": true,
@@ -131,14 +153,12 @@ curl --location 'https://<lambda-url>/register' \
 
 ---
 
-### Endpoint 2: 🔍 Consulta por CPF (`GET /users/{cpf}`)
-Verifica a existência do CPF e situação cadastral:
-
+#### 2. 🔍 Consulta de Situação Cadastral (`GET /users/{cpf}`)
 ```bash
 curl --location 'https://<lambda-url>/users/529.982.247-25'
 ```
 
-**Resposta de Sucesso (200 OK)**:
+**Resposta (200 OK)**:
 ```json
 {
   "exists": true,
@@ -157,9 +177,7 @@ curl --location 'https://<lambda-url>/users/529.982.247-25'
 
 ---
 
-### Endpoint 3: 🔐 Autenticação e Emissão de JWT (`POST /auth/login`)
-Autentica com CPF ou E-mail e Senha e retorna o token JWT assinado para consumir a aplicação:
-
+#### 3. 🔐 Autenticação e Emissão de Token JWT (`POST /auth/login`)
 ```bash
 curl --location 'https://<lambda-url>/auth/login' \
 --header 'Content-Type: application/json' \
@@ -169,7 +187,7 @@ curl --location 'https://<lambda-url>/auth/login' \
 }'
 ```
 
-**Resposta de Sucesso (200 OK)**:
+**Resposta (200 OK)**:
 ```json
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -178,24 +196,4 @@ curl --location 'https://<lambda-url>/auth/login' \
   "refresh_token": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9...",
   "scope": "openid email profile"
 }
-```
-
----
-
-## 🛑 4. Encerramento do Laboratório (Ordem de Destruição)
-
-Ao finalizar as atividades ou os testes do dia, para não esgotar o orçamento de US$ 50/100 do Learner Lab, destrua a infraestrutura na **ordem estritamente inversa**:
-
-```bash
-# 1º Passo: Destruir a Lambda
-cd c:/git/fiap/15-soat-tech-challenge-lamda
-terraform destroy -auto-approve
-
-# 2º Passo: Destruir o RDS e Observabilidade
-cd c:/git/fiap/15-soat-tech-challenge-iac-db
-terraform destroy -auto-approve
-
-# 3º Passo: Destruir o EKS, VPC e Gateways
-cd c:/git/fiap/15-soat-tech-challenge-iac-k8s
-terraform destroy -auto-approve
 ```

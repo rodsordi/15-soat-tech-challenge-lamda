@@ -3,7 +3,7 @@ name: "Auth Lambda CI/CD Pipeline"
 on:
   push:
     branches:
-      - develop
+      - master
   workflow_dispatch:
     inputs:
       action:
@@ -83,7 +83,7 @@ jobs:
         run: terraform plan -no-color
 
       - name: Terraform Apply
-        if: (github.ref == 'refs/heads/develop' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+        if: (github.ref == 'refs/heads/master' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
         run: terraform apply -auto-approve -no-color
 
       - name: Terraform Destroy

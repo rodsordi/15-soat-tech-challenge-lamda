@@ -3,12 +3,7 @@ name: "Auth Lambda CI/CD Pipeline"
 on:
   push:
     branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
+      - develop
   workflow_dispatch:
     inputs:
       action:
@@ -49,6 +44,8 @@ jobs:
 
     env:
       AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+      TF_VAR_newrelic_account_id: ${{ vars.NEWRELIC_ACCOUNT_ID }}
+      TF_VAR_newrelic_license_key: ${{ secrets.NEWRELIC_LICENSE_KEY }}
 
     steps:
       - name: Checkout Repository
@@ -65,7 +62,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.6.0"
+          terraform_version: "1.15.7"
 
       - name: Terraform Format Check
         id: fmt
@@ -82,13 +79,14 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'plan'
         run: terraform plan -no-color
 
       - name: Terraform Apply
-        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+        if: (github.ref == 'refs/heads/develop' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
         run: terraform apply -auto-approve -no-color
 
       - name: Terraform Destroy
         if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
         run: terraform destroy -auto-approve -no-color
+

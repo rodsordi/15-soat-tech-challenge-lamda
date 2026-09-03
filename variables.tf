@@ -51,7 +51,7 @@ variable "keycloak_admin_password" {
   type        = string
   sensitive   = true
   description = "Keycloak Admin Password for user management API"
-  default     = "Admin@2026!"
+  default     = ""
 }
 
 variable "use_existing_lab_role" {
@@ -59,4 +59,24 @@ variable "use_existing_lab_role" {
   description = "Use existing AWS Academy LabRole instead of creating new IAM role"
   default     = true
 }
+
+variable "newrelic_account_id" {
+  type        = string
+  description = "New Relic Account ID for Lambda Serverless APM"
+  default     = ""
+}
+
+variable "newrelic_license_key" {
+  type        = string
+  sensitive   = true
+  description = "New Relic Ingest License Key for Lambda Serverless APM"
+  default     = ""
+}
+
+variable "enable_newrelic" {
+  type        = bool
+  description = "Enable New Relic Serverless Lambda Layer instrumentation"
+  default     = true
+}
+
 

@@ -55,7 +55,8 @@ resource "aws_lambda_function" "auth_handler" {
   description   = "Serverless Auth Handler proxying login requests to Keycloak and returning JWT"
   role          = data.aws_iam_role.lab_role.arn
   runtime       = "nodejs20.x"
-  handler       = "index.handler"
+  handler       = var.enable_newrelic && var.newrelic_license_key != "" ? "newrelic-lambda-wrapper.handler" : "index.handler"
+  layers        = var.enable_newrelic && var.newrelic_license_key != "" ? ["arn:aws:lambda:${var.aws_region}:451483290750:layer:NewRelicNodeJS20X:1"] : []
   timeout       = 15
   memory_size   = 128
 
@@ -68,20 +69,29 @@ resource "aws_lambda_function" "auth_handler" {
   }
 
   environment {
-    variables = {
-      KEYCLOAK_URL            = var.keycloak_url
-      KEYCLOAK_REALM          = var.keycloak_realm
-      KEYCLOAK_CLIENT_ID      = var.keycloak_client_id
-      KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret
-      KEYCLOAK_ADMIN          = var.keycloak_admin
-      KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password
-    }
+    variables = merge(
+      {
+        KEYCLOAK_URL            = var.keycloak_url
+        KEYCLOAK_REALM          = var.keycloak_realm
+        KEYCLOAK_CLIENT_ID      = var.keycloak_client_id
+        KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret
+        KEYCLOAK_ADMIN          = var.keycloak_admin
+        KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password
+      },
+      var.enable_newrelic && var.newrelic_license_key != "" ? {
+        NEW_RELIC_ACCOUNT_ID                   = var.newrelic_account_id
+        NEW_RELIC_LICENSE_KEY                  = var.newrelic_license_key
+        NEW_RELIC_LAMBDA_HANDLER               = "index.handler"
+        NEW_RELIC_EXTENSION_SEND_FUNCTION_LOGS = "true"
+      } : {}
+    )
   }
 
   tags = {
     Name = "garage-auth-handler"
   }
 }
+
 
 # --- Lambda Function URL (Public HTTPS Endpoint) ---
 resource "aws_lambda_function_url" "auth_url" {

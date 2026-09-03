@@ -1,0 +1,20 @@
+{
+  "name": "15-soat-tech-challenge-lamda",
+  "version": "1.0.0",
+  "description": "AWS Lambda Auth Handler para autenticação Keycloak e emissão de JWT",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+
+  "keywords": [
+    "aws",
+    "lambda",
+    "jwt",
+    "keycloak",
+    "tech-challenge"
+  ],
+  "author": "Tech Challenge Garage",
+  "license": "MIT"
+}

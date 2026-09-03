@@ -72,7 +72,13 @@ graph TD
 
 ## ⚙️ 4. Passos para Execução e Deploy
 
+> [!CAUTION]
+> **DIRETRIZ MANDATÓRIA DE DEVSECOPS: NUNCA MAPEAR DADOS SENSÍVEIS NO CÓDIGO FONTE**
+> É **estritamente proibido** comitar senhas de admin do Keycloak, client secrets, tokens de API ou credenciais da AWS em arquivos de código (`.js`), variáveis do Terraform (`.tf`, `.tfvars`) ou scripts.
+> Todos os dados confidenciais **devem ser configurados exclusivamente nos Segredos da Pipeline (GitHub Actions Secrets)** e passados à função Lambda via variáveis de ambiente criptografadas.
+
 ### 4.1. Execução dos Testes Unitários Locais
+
 A suíte inclui 14 testes automatizados cobrindo todas as regras de CPF, CNPJ, roteamento e CORS:
 
 ```bash

@@ -11,12 +11,14 @@ data "aws_iam_role" "lab_role" {
 }
 
 # --- VPC Discovery from EKS Infrastructure ---
-data "aws_vpc" "eks_vpc" {
-  filter {
-    name   = "tag:Name"
-    values = ["${var.cluster_name}-vpc"]
-  }
+data "aws_eks_cluster" "cluster" {
+  name = var.cluster_name
 }
+
+data "aws_vpc" "eks_vpc" {
+  id = data.aws_eks_cluster.cluster.vpc_config[0].vpc_id
+}
+
 
 data "aws_subnets" "private_subnets" {
   filter {

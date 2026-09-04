@@ -32,13 +32,6 @@ data "aws_subnets" "private_subnets" {
   }
 }
 
-# --- Keycloak Internal NLB Discovery ---
-data "aws_lb" "keycloak_nlb" {
-  count = var.keycloak_url == "http://keycloak.garage.svc.cluster.local:8080" ? 1 : 0
-  tags = {
-    "kubernetes.io/service-name" = "garage/keycloak"
-  }
-}
 
 # --- Lambda Security Group ---
 resource "aws_security_group" "lambda_sg" {
@@ -81,7 +74,7 @@ resource "aws_lambda_function" "auth_handler" {
   environment {
     variables = merge(
       {
-        KEYCLOAK_URL            = length(data.aws_lb.keycloak_nlb) > 0 ? "http://${data.aws_lb.keycloak_nlb[0].dns_name}:8080" : var.keycloak_url
+        KEYCLOAK_URL            = var.keycloak_url
         KEYCLOAK_REALM          = var.keycloak_realm
         KEYCLOAK_CLIENT_ID      = var.keycloak_client_id
         KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret

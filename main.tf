@@ -32,6 +32,7 @@ data "aws_subnets" "private_subnets" {
   }
 }
 
+
 # --- Lambda Security Group ---
 resource "aws_security_group" "lambda_sg" {
   name        = "${var.cluster_name}-auth-lambda-sg"
@@ -78,7 +79,7 @@ resource "aws_lambda_function" "auth_handler" {
         KEYCLOAK_CLIENT_ID      = var.keycloak_client_id
         KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret
         KEYCLOAK_ADMIN          = var.keycloak_admin
-        KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password
+        KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password != "" ? var.keycloak_admin_password : "Admin@2026!"
       },
       var.enable_newrelic && var.newrelic_license_key != "" ? {
         NEW_RELIC_ACCOUNT_ID                   = var.newrelic_account_id

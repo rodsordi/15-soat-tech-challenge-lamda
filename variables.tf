@@ -19,7 +19,7 @@ variable "cluster_name" {
 variable "keycloak_url" {
   type        = string
   description = "Keycloak endpoint URL"
-  default     = "http://keycloak.garage.svc.cluster.local:8080"
+  default     = "http://a3c63e7e0fb384a4c8c29ea5e43c9e17-1683280248.us-east-1.elb.amazonaws.com:8080"
 }
 
 variable "keycloak_realm" {
@@ -51,7 +51,7 @@ variable "keycloak_admin_password" {
   type        = string
   sensitive   = true
   description = "Keycloak Admin Password for user management API"
-  default     = ""
+  default     = "Admin@2026!"
 }
 
 variable "use_existing_lab_role" {

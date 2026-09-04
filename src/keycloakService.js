@@ -37,12 +37,82 @@ async function getAdminToken() {
   return data.access_token;
 }
 
+let cachedRealmReady = false;
+
+/**
+ * Ensures the target realm and client exist in Keycloak
+ */
+async function ensureRealm() {
+  if (cachedRealmReady) return;
+
+  try {
+    const adminToken = await getAdminToken();
+    const realmUrl = `${KEYCLOAK_URL}/admin/realms/${REALM}`;
+
+    const checkRes = await fetch(realmUrl, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    });
+
+    if (checkRes.status === 404) {
+      console.log(`Realm '${REALM}' not found. Creating realm...`);
+      const createRealmRes = await fetch(`${KEYCLOAK_URL}/admin/realms`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          realm: REALM,
+          enabled: true,
+          displayName: 'Garage Realm'
+        })
+      });
+
+      if (!createRealmRes.ok && createRealmRes.status !== 409) {
+        const err = await createRealmRes.text();
+        console.error('Failed to create realm:', createRealmRes.status, err);
+      } else {
+        console.log(`Realm '${REALM}' created successfully.`);
+      }
+
+      console.log(`Creating client '${CLIENT_ID}' in realm '${REALM}'...`);
+      const createClientRes = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}/clients`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          clientId: CLIENT_ID,
+          enabled: true,
+          publicClient: true,
+          directAccessGrantsEnabled: true,
+          standardFlowEnabled: true
+        })
+      });
+
+      if (!createClientRes.ok && createClientRes.status !== 409) {
+        const err = await createClientRes.text();
+        console.error('Failed to create client:', createClientRes.status, err);
+      } else {
+        console.log(`Client '${CLIENT_ID}' created successfully.`);
+      }
+    }
+
+    cachedRealmReady = true;
+  } catch (err) {
+    console.error('Error during ensureRealm:', err.message);
+  }
+}
+
 /**
  * Creates a new user in Keycloak
  * @param {Object} userData
  * @returns {Promise<Object>}
  */
 async function createUser({ name, email, document, documentType, password, role = 'CUSTOMER' }) {
+  await ensureRealm();
   const adminToken = await getAdminToken();
   const usersEndpoint = `${KEYCLOAK_URL}/admin/realms/${REALM}/users`;
 
@@ -116,6 +186,7 @@ async function createUser({ name, email, document, documentType, password, role 
  * @returns {Promise<Object|null>}
  */
 async function findUserByDocument(document) {
+  await ensureRealm();
   const adminToken = await getAdminToken();
   const searchEndpoint = `${KEYCLOAK_URL}/admin/realms/${REALM}/users?username=${encodeURIComponent(document)}&exact=true`;
 
@@ -126,6 +197,10 @@ async function findUserByDocument(document) {
       'Content-Type': 'application/json'
     }
   });
+
+  if (response.status === 404) {
+    return null;
+  }
 
   if (!response.ok) {
     const errText = await response.text();
@@ -156,6 +231,7 @@ async function findUserByDocument(document) {
  * @returns {Promise<Object>}
  */
 async function authenticate({ username, password }) {
+  await ensureRealm();
   const tokenEndpoint = `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`;
   const params = new URLSearchParams();
   params.append('grant_type', 'password');

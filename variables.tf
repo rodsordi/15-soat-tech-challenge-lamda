@@ -51,7 +51,7 @@ variable "keycloak_admin_password" {
   type        = string
   sensitive   = true
   description = "Keycloak Admin Password for user management API"
-  default     = ""
+  default     = "Admin@2026!"
 }
 
 variable "use_existing_lab_role" {

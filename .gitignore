@@ -40,4 +40,6 @@ terraform.rc
 # End of https://www.toptal.com/developers/gitignore/api/terraform
 
 # Build artifacts
-build/
+build/
+.terraform.lock.hcl
+

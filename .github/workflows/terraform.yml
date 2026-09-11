@@ -64,6 +64,17 @@ jobs:
         with:
           terraform_version: "1.15.7"
 
+      - name: Ensure Terraform State S3 Bucket Exists
+        run: |
+          BUCKET="techchallenge-fiap-tfstate-890958457263"
+          if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            echo "Bucket $BUCKET does not exist. Creating via pipeline..."
+            aws s3 mb "s3://$BUCKET" --region "${{ env.AWS_REGION }}"
+            aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
+          else
+            echo "Bucket $BUCKET already exists."
+          fi
+
       - name: Terraform Format Check
         id: fmt
         run: terraform fmt -check

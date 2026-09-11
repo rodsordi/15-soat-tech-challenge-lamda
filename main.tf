@@ -97,28 +97,28 @@ resource "aws_lambda_function" "auth_handler" {
 }
 
 
-# --- Lambda Function URL (Public HTTPS Endpoint) ---
+# --- Lambda Function URL (IAM Protected Endpoint) ---
 resource "aws_lambda_function_url" "auth_url" {
   function_name      = aws_lambda_function.auth_handler.function_name
-  authorization_type = "NONE"
+  authorization_type = "AWS_IAM"
 
   cors {
     allow_credentials = false
     allow_origins     = ["*"]
     allow_methods     = ["*"]
-    allow_headers     = ["Content-Type", "Authorization", "X-Requested-With"]
+    allow_headers     = ["Content-Type", "Authorization", "X-Requested-With", "x-amz-date", "x-amz-security-token"]
     expose_headers    = ["*"]
     max_age           = 300
   }
-
 }
 
 
-# --- Permission for Public Function URL Invocation ---
-resource "aws_lambda_permission" "public_function_url" {
-  statement_id           = "FunctionURLAllowPublicAccess"
+# --- Permission for IAM Function URL Invocation ---
+resource "aws_lambda_permission" "iam_function_url" {
+  statement_id           = "FunctionURLAllowIAMAccess"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.auth_handler.function_name
   principal              = "*"
-  function_url_auth_type = "NONE"
+  function_url_auth_type = "AWS_IAM"
 }
+

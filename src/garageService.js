@@ -3,8 +3,10 @@
  * Integrates with api-garage resource server for catalog persistence
  */
 
-const GARAGE_API_URL = (process.env.GARAGE_API_URL || 'http://api-garage.garage.svc.cluster.local:8080').replace(/\/$/, '');
+const RAW_GARAGE_API_URL = (process.env.GARAGE_API_URL || 'http://api-garage.garage.svc.cluster.local:8080').replace(/\/$/, '');
+const GARAGE_API_URL = RAW_GARAGE_API_URL.endsWith('/api') ? RAW_GARAGE_API_URL : `${RAW_GARAGE_API_URL}/api`;
 const DEFAULT_TIMEOUT_MS = parseInt(process.env.GARAGE_API_TIMEOUT_MS || '5000', 10);
+
 
 /**
  * Creates an employee in api-garage catalog

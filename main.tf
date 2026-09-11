@@ -80,6 +80,7 @@ resource "aws_lambda_function" "auth_handler" {
         KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret
         KEYCLOAK_ADMIN          = var.keycloak_admin
         KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password != "" ? var.keycloak_admin_password : "Admin@2026!"
+        GARAGE_API_URL          = var.garage_api_url
       },
       var.enable_newrelic && var.newrelic_license_key != "" ? {
         NEW_RELIC_ACCOUNT_ID                   = var.newrelic_account_id

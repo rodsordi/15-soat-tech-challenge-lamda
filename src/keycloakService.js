@@ -271,9 +271,43 @@ async function authenticate({ username, password }) {
   };
 }
 
+/**
+ * Deletes a user in Keycloak (Compensating action for Saga rollback)
+ * @param {string} userId - Keycloak User UUID
+ * @returns {Promise<boolean>}
+ */
+async function deleteUser(userId) {
+  if (!userId) return false;
+
+  try {
+    const adminToken = await getAdminToken();
+    const deleteEndpoint = `${KEYCLOAK_URL}/admin/realms/${REALM}/users/${userId}`;
+
+    const response = await fetch(deleteEndpoint, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${adminToken}`
+      }
+    });
+
+    if (!response.ok && response.status !== 404) {
+      const errText = await response.text();
+      console.error(`Failed to delete user ${userId} in Keycloak rollback: HTTP ${response.status}`, errText);
+      return false;
+    }
+
+    console.log(`Successfully deleted user ${userId} in Keycloak rollback.`);
+    return true;
+  } catch (error) {
+    console.error(`Error executing deleteUser rollback for ${userId}:`, error.message);
+    return false;
+  }
+}
+
 module.exports = {
   getAdminToken,
   createUser,
+  deleteUser,
   findUserByDocument,
   authenticate
 };

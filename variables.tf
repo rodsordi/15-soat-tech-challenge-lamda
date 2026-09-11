@@ -79,4 +79,10 @@ variable "enable_newrelic" {
   default     = true
 }
 
+variable "garage_api_url" {
+  type        = string
+  description = "api-garage endpoint URL for catalog propagation"
+  default     = "http://api-garage.garage.svc.cluster.local:8080"
+}
+
 

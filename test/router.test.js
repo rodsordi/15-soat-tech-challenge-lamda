@@ -78,10 +78,22 @@ test('Lambda Router - Auth validation failure for missing password', async () =>
   const event = {
     rawPath: '/auth/login',
     requestContext: { http: { method: 'POST', path: '/auth/login' } },
-    body: JSON.stringify({ username: 'john@example.com' }) // missing password
+    body: JSON.stringify({ username: '52998224725' }) // missing password
   };
   const response = await handler(event);
   assert.strictEqual(response.statusCode, 400);
   const body = JSON.parse(response.body);
   assert.strictEqual(body.error, 'Bad Request');
+});
+
+test('Lambda Router - Auth validation failure for non-CPF username', async () => {
+  const event = {
+    rawPath: '/auth/login',
+    requestContext: { http: { method: 'POST', path: '/auth/login' } },
+    body: JSON.stringify({ username: 'user@example.com', password: 'SecretPassword123' })
+  };
+  const response = await handler(event);
+  assert.strictEqual(response.statusCode, 400);
+  const body = JSON.parse(response.body);
+  assert.strictEqual(body.error, 'Invalid Document');
 });

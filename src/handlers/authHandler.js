@@ -3,31 +3,37 @@
  * Route: POST /auth/login or POST /login
  */
 
-const { sanitizeDocument } = require('../documentValidator');
-const { authenticate } = require('../keycloakService');
+const { validateDocument } = require('../documentValidator');
+const keycloakService = require('../keycloakService');
 
 async function handleAuth(body) {
-  const { username, password, cpf, email } = body || {};
-  const userIdentifier = username || cpf || email;
+  const { username, password, cpf } = body || {};
+  const userIdentifier = username || cpf;
 
   if (!userIdentifier || !password) {
     return {
       statusCode: 400,
       body: {
         error: 'Bad Request',
-        message: 'Os campos de identificação (username/cpf/email) e password são obrigatórios.'
+        message: 'Os campos de identificação (username/cpf) e password são obrigatórios.'
       }
     };
   }
 
-  // Clean document digits if it's a numeric CPF/CNPJ
-  const cleanIdentifier = /^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/.test(userIdentifier) || /^\d{11}$/.test(userIdentifier)
-    ? sanitizeDocument(userIdentifier)
-    : userIdentifier;
+  const validation = validateDocument(userIdentifier);
+  if (!validation.isValid || validation.type !== 'CPF') {
+    return {
+      statusCode: 400,
+      body: {
+        error: 'Invalid Document',
+        message: validation.error || 'O campo username/cpf deve ser um CPF válido (11 dígitos).'
+      }
+    };
+  }
 
   try {
-    const authResult = await authenticate({
-      username: cleanIdentifier,
+    const authResult = await keycloakService.authenticate({
+      username: validation.clean,
       password: password
     });
 

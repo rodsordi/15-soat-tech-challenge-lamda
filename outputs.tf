@@ -12,3 +12,8 @@ output "lambda_function_url" {
   value       = aws_lambda_function_url.auth_url.function_url
   description = "Public HTTPS Function URL for client authentication"
 }
+
+output "ssm_lambda_auth_url_name" {
+  value       = aws_ssm_parameter.lambda_auth_url.name
+  description = "SSM Parameter Name for Lambda Auth Function URL"
+}

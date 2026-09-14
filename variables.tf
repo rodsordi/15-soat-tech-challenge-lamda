@@ -18,8 +18,8 @@ variable "cluster_name" {
 
 variable "keycloak_url" {
   type        = string
-  description = "Keycloak endpoint URL"
-  default     = "http://a26160f64b78c49e287dc98c721e2c50-6be6a7545633c425.elb.us-east-1.amazonaws.com:8080"
+  description = "Keycloak endpoint URL (optional, defaults to SSM parameter /garage/keycloak/url)"
+  default     = ""
 }
 
 variable "keycloak_realm" {
@@ -81,8 +81,8 @@ variable "enable_newrelic" {
 
 variable "garage_api_url" {
   type        = string
-  description = "api-garage endpoint URL for catalog propagation"
-  default     = "http://a01f2f3e1486a4eb6bd751ae3744a3f1-d565b930af7e7fc5.elb.us-east-1.amazonaws.com:8080"
+  description = "api-garage endpoint URL for catalog propagation (optional, defaults to SSM parameter /garage/api/url)"
+  default     = ""
 }
 
 

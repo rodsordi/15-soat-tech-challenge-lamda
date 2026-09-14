@@ -52,6 +52,15 @@ resource "aws_security_group" "lambda_sg" {
   }
 }
 
+# --- SSM Parameters from iac-k8s ---
+data "aws_ssm_parameter" "keycloak_url" {
+  name = "/garage/keycloak/url"
+}
+
+data "aws_ssm_parameter" "garage_api_url" {
+  name = "/garage/api/url"
+}
+
 # --- AWS Lambda Function ---
 resource "aws_lambda_function" "auth_handler" {
   function_name = "garage-auth-handler"
@@ -74,13 +83,13 @@ resource "aws_lambda_function" "auth_handler" {
   environment {
     variables = merge(
       {
-        KEYCLOAK_URL            = var.keycloak_url
+        KEYCLOAK_URL            = var.keycloak_url != "" ? var.keycloak_url : data.aws_ssm_parameter.keycloak_url.value
         KEYCLOAK_REALM          = var.keycloak_realm
         KEYCLOAK_CLIENT_ID      = var.keycloak_client_id
         KEYCLOAK_CLIENT_SECRET  = var.keycloak_client_secret
         KEYCLOAK_ADMIN          = var.keycloak_admin
         KEYCLOAK_ADMIN_PASSWORD = var.keycloak_admin_password != "" ? var.keycloak_admin_password : "Admin@2026!"
-        GARAGE_API_URL          = var.garage_api_url
+        GARAGE_API_URL          = var.garage_api_url != "" ? var.garage_api_url : data.aws_ssm_parameter.garage_api_url.value
       },
       var.enable_newrelic && var.newrelic_license_key != "" ? {
         NEW_RELIC_ACCOUNT_ID                   = var.newrelic_account_id
@@ -120,5 +129,19 @@ resource "aws_lambda_permission" "iam_function_url" {
   function_name          = aws_lambda_function.auth_handler.function_name
   principal              = "*"
   function_url_auth_type = "AWS_IAM"
+}
+
+# --- Publish Lambda URL to SSM Parameter Store ---
+resource "aws_ssm_parameter" "lambda_auth_url" {
+  name        = "/garage/lambda/auth-url"
+  type        = "String"
+  value       = aws_lambda_function_url.auth_url.function_url
+  description = "Garage Auth Lambda Function URL"
+
+  tags = {
+    Project     = "SOAT-TechChallenge"
+    ManagedBy   = "Terraform"
+    Environment = "production"
+  }
 }
 

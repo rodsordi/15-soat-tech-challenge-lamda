@@ -137,6 +137,7 @@ resource "aws_ssm_parameter" "lambda_auth_url" {
   type        = "String"
   value       = aws_lambda_function_url.auth_url.function_url
   description = "Garage Auth Lambda Function URL"
+  overwrite   = true
 
   tags = {
     Project     = "SOAT-TechChallenge"
